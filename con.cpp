@@ -14,6 +14,7 @@ using namespace std;
 #define errExit(msg) {perror(msg); return errno;}
 
 #include "mount.h"
+MountHelper MOUNT_HELPER;
 
 struct ChildArgs{
 	char ** argv;
@@ -43,11 +44,11 @@ int fork_and_execute(ChildArgs* child_args)
 int setup_container()
 {
     sethostname((char *)HOSTNAME, ((string)HOSTNAME).size());
-
+    // MOUNT_HELPER.add_mount("", "/", "", MS_REC | MS_PRIVATE );
+    // mount("", CHROOT_PATH, "", MS_PRIVATE, NULL);
 	if(chdir((char*)CHROOT_PATH) || chroot((char *)CHROOT_PATH)!= 0)
 		errExit("Error in chroot");
-    MountHelper mount_helper;
-    mount_helper.add_mount("proc", "/proc", "proc", MS_PRIVATE);
+    MOUNT_HELPER.add_mount("proc", "/proc", "proc", 0);
     return 0;
 }
 
