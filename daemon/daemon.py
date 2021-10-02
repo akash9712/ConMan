@@ -1,36 +1,61 @@
+import sys
+sys.path.insert(0, '/home/akash/conman_again')
+
 import subprocess
+import threading
+import subprocess
+import pickle
+import os
 from socket import socket, gethostname, AF_INET, SOCK_STREAM
-from dataclass import dataclass
+from multiprocessing import Manager
+from creator.log_store import Base_image_tracker, Container_tracker
+from creator.creator import ContainerCreator
 
 CONMAN_ROOT = "$HOME/conman_again"
 PORT = 8000
 LOG_FILE = os.path.join(CONMAN_ROOT, "logs")
+TERMINATE_SOCKET_CONNECTION_MSG = "CLOSE_CONNECTION"
 
-@dataclass(unsafe_hash=True)
-class Container:
-    entry_script: string
-    container_id: string
-
-class Manager:
+class ContainerManager:
     """
     Class to start, manage and clean-up an existing container. 
     """
 
-    def __init__(self, container, logger):
-        self.__logger__ = logger
-        self.__socket__ = socket(AF_INET, SOCK_STREAM)
-        self.__socket__ = socket(AF_INET, SOCK_STREAM)
-        self.__log_fie__ = LOG_FILE
+    def __init__(self):
+        self.__socket__ = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__manager__ = Manager()
+        self.__base_image_tracker__ = Base_image_tracker(self.__manager__)
+        self.__container_tracker__ = Container_tracker(self.__manager__)
+        self.__container_creator__ = ContainerCreator(Base_image_tracker,
+                    Container_tracker)
 
-    def listen_on_port(self, port_number: int, container_id):
+    def manage(self):
         """
         listen on a port for messages from a process running in a container.
         """
         self.__socket__.bind((gethostname(), PORT))
-        self.__socket_.listen(5)
+        self.__socket__.listen(5)
 
         while True:
+            print("Listening...")
             client_socket, address = self.__socket__.accept()
+            message = pickle.loads(client_socket.recv(4096))
+
+            container_name = message['container_name']
+            cmd = message['cmd']
+            is_script = message['is_script']
+
+            if not self.__container_tracker__.container_exists(container_name):
+                client_socket.send(bytes("Container does not exist"
+                "specify base image for container creation", "utf-8"))
+                base_image_name = client_socket.recv(4096).decode("ut-8")
+                self.__container_tracker__.initialize_container(container_name,
+                        base_image_name)
+
+            thread = threading.Thread(target=self.run_container,
+                    args=(container_name, cmd), kwargs={is_script:is_script})
+            client_socet.send(bytes("Process started successfully", "utf-8"))
+            client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
 
     def update_logs(self):
         """
@@ -44,9 +69,15 @@ class Manager:
         """
         pass
 
-    @static_method
-    def start_entry_point_process(cmd, script=True):
+    def run_container(container, cmd, is_script=False):
         """
         Kick off the entry point process to run a container.
         """
-        pass
+        subprocess.Popen([os.path.join(CONMAN_ROOT, "cpp/con"), cmd])
+
+def main():
+    container_manager = ContainerManager()
+    container_manager.manage()
+    
+if __name__ == '__main__':
+    main()

@@ -1,6 +1,5 @@
 import os
 from creator.log_store import Base_image_tracker, Container_tracker
-from multiprocessing import Manager
 from subprocess import Popen, PIPE, CalledProcessError
 from datetime import datetime
 from shutil import rmtree
@@ -13,18 +12,17 @@ IMAGES_BASE_PATH = os.path.join(CONMAN_ROOT, ".images")
 import logging
 logging.getLogger().setLevel(logging.INFO)
 
-class Container_creator:
+class ContainerCreator:
     """
     Class to download, unpack and install image for each container.
     """
-    def __init__(self):
+    def __init__(self, base_image_tracker: Base_image_tracker, container_tracker: Container_tracker):
         os.makedirs(CONTAINERS_BASE_PATH, exist_ok=True)
         os.makedirs(IMAGES_BASE_PATH, exist_ok=True)
         
         self.__conman_root__ = CONMAN_ROOT
-        self.__manager__ = Manager()
-        self.__base_image_tracker__ = Base_image_tracker(self.__manager__)
-        self.__container_tracker__ = Container_tracker(self.__manager__)
+        self.__base_image_tracker__ = base_image_tracker
+        self.__container_tracker__ = container_tracker
         self.__chroot_dir_names__ = {"bionic": "ubuntu_bionic"}
 
     def get_base_image_location(self, image_name: str):

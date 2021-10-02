@@ -5,4 +5,6 @@ ubuntu_fs
 .images
 test.py
 creator/__pycache__
+daemon/__pycache__
+cli/__pycache___
 venv

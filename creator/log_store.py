@@ -53,6 +53,9 @@ class Base_image_tracker(Tracker):
     def add_image(self, image_name, image_path):
         self.add_props(image_name, {"image_path": image_path})
 
+    def base_image_exists(self, image_name):
+        return self.__tracker_dict__.get(image_name, False)
+
 
 class Container_tracker(Tracker):
     """
@@ -68,7 +71,7 @@ class Container_tracker(Tracker):
         }
     """
 
-    def __init__(self, manager):
+    def __init__(self, manager, *args):
         super().__init__(manager, CONTAINER_TRACKER_PATH)
 
     def add_container(self, container_name, image_name, container_location, running, creation_time, chroot_dir):
@@ -80,3 +83,6 @@ class Container_tracker(Tracker):
             "chroot_dir": chroot_dir
         }
         self.add_props(container_name, val_dict)
+
+    def container_exists(self, container_name):
+        return self.__tracker_dict__.get(container_name, False)
