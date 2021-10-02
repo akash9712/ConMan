@@ -6,7 +6,7 @@ import threading
 import subprocess
 import pickle
 import os
-from socket import socket, gethostname, AF_INET, SOCK_STREAM
+import socket
 from multiprocessing import Manager
 from creator.log_store import Base_image_tracker, Container_tracker
 from creator.creator import ContainerCreator
@@ -26,14 +26,14 @@ class ContainerManager:
         self.__manager__ = Manager()
         self.__base_image_tracker__ = Base_image_tracker(self.__manager__)
         self.__container_tracker__ = Container_tracker(self.__manager__)
-        self.__container_creator__ = ContainerCreator(Base_image_tracker,
-                    Container_tracker)
+        self.__container_creator__ = ContainerCreator(self.__base_image_tracker__,
+                    self.__container_tracker__)
 
     def manage(self):
         """
         listen on a port for messages from a process running in a container.
         """
-        self.__socket__.bind((gethostname(), PORT))
+        self.__socket__.bind((socket.gethostname(), PORT))
         self.__socket__.listen(5)
 
         while True:
@@ -42,19 +42,21 @@ class ContainerManager:
             message = pickle.loads(client_socket.recv(4096))
 
             container_name = message['container_name']
-            cmd = message['cmd']
+            cmd = message['command']
             is_script = message['is_script']
+            print(container_name)
+            print(cmd)
+            print(is_script)
 
             if not self.__container_tracker__.container_exists(container_name):
-                client_socket.send(bytes("Container does not exist"
-                "specify base image for container creation", "utf-8"))
-                base_image_name = client_socket.recv(4096).decode("ut-8")
-                self.__container_tracker__.initialize_container(container_name,
+                client_socket.send(bytes("Container does not exist. "
+                "Specify base image for container creation", "utf-8"))
+                base_image_name = pickle.loads(client_socket.recv(4096))['base_image_id']
+                self.__container_creator__.initialize_container(container_name,
                         base_image_name)
 
             thread = threading.Thread(target=self.run_container,
                     args=(container_name, cmd), kwargs={is_script:is_script})
-            client_socet.send(bytes("Process started successfully", "utf-8"))
             client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
 
     def update_logs(self):
