@@ -45,7 +45,7 @@ class ContainerManager:
                 container_name = message['container_name']
                 cmd = message['command']
                 is_script = message['is_script']
-                
+
                 if not self.__container_tracker__.container_exists(container_name):
                     client_socket.send(bytes("Container does not exist. "
                     "Specify base image for container creation", "utf-8"))
@@ -54,36 +54,24 @@ class ContainerManager:
                             base_image_name)
 
                 thread = threading.Thread(target=self.run_container,
-                        args=(container_name, cmd), kwargs={"is_script":is_script})
-                # self.run_container(container_name, cmd, is_script=is_script)
+                        args=(container_name, cmd, message, client_socket), kwargs={"is_script":is_script})
                 thread.start()
-                
-                client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
+
         except KeyboardInterrupt:
             self.__socket__.close()
 
-    def update_logs(self):
-        """
-        Update logs for the container.
-        """
-        pass
-
-    def clean_up(self, container_name):
-        """
-        Clean up once a container terminates after it's entry point process terminates.
-        """
-        pass
-
-    def run_container(self, container, cmd, is_script=False):
+    def run_container(self, container, cmd, message, client_socket, is_script=False):
         """
         Kick off the entry point process to run a container.
         """
         print(cmd, flush=True)
-        # with subprocess.Popen(["sudo", os.path.join(CONMAN_ROOT, "cpp/con"), cmd]) as p:
-        #     for line in p.stdout:
-        #         print(line, end='', flush=True)
-        
-        subprocess.Popen(["sudo", os.path.join(CONMAN_ROOT, "cpp/con")] + cmd.split()).communicate()
+        with subprocess.Popen(["sudo",
+            os.path.join(CONMAN_ROOT, "cpp/con"), cmd],
+            stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
+            for line in p.stdout:
+                # print(line, end='', flush=True)
+                client_socket.send(bytes(line, "utf-8"))
+        client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
 
 def main():
     container_manager = ContainerManager()
