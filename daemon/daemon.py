@@ -11,7 +11,7 @@ from multiprocessing import Manager
 from creator.log_store import Base_image_tracker, Container_tracker
 from creator.creator import ContainerCreator
 
-CONMAN_ROOT = "$HOME/conman_again"
+CONMAN_ROOT = "/home/akash/conman_again"
 PORT = 8000
 LOG_FILE = os.path.join(CONMAN_ROOT, "logs")
 TERMINATE_SOCKET_CONNECTION_MSG = "CLOSE_CONNECTION"
@@ -36,28 +36,31 @@ class ContainerManager:
         self.__socket__.bind((socket.gethostname(), PORT))
         self.__socket__.listen(5)
 
-        while True:
-            print("Listening...")
-            client_socket, address = self.__socket__.accept()
-            message = pickle.loads(client_socket.recv(4096))
+        try:
+            while True:
+                print("Listening...")
+                client_socket, address = self.__socket__.accept()
+                message = pickle.loads(client_socket.recv(4096))
 
-            container_name = message['container_name']
-            cmd = message['command']
-            is_script = message['is_script']
-            print(container_name)
-            print(cmd)
-            print(is_script)
+                container_name = message['container_name']
+                cmd = message['command']
+                is_script = message['is_script']
+                
+                if not self.__container_tracker__.container_exists(container_name):
+                    client_socket.send(bytes("Container does not exist. "
+                    "Specify base image for container creation", "utf-8"))
+                    base_image_name = pickle.loads(client_socket.recv(4096))['base_image_id']
+                    self.__container_creator__.initialize_container(container_name,
+                            base_image_name)
 
-            if not self.__container_tracker__.container_exists(container_name):
-                client_socket.send(bytes("Container does not exist. "
-                "Specify base image for container creation", "utf-8"))
-                base_image_name = pickle.loads(client_socket.recv(4096))['base_image_id']
-                self.__container_creator__.initialize_container(container_name,
-                        base_image_name)
-
-            thread = threading.Thread(target=self.run_container,
-                    args=(container_name, cmd), kwargs={is_script:is_script})
-            client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
+                thread = threading.Thread(target=self.run_container,
+                        args=(container_name, cmd), kwargs={"is_script":is_script})
+                # self.run_container(container_name, cmd, is_script=is_script)
+                thread.start()
+                
+                client_socket.send(bytes(TERMINATE_SOCKET_CONNECTION_MSG, "utf-8"))
+        except KeyboardInterrupt:
+            self.__socket__.close()
 
     def update_logs(self):
         """
@@ -71,11 +74,16 @@ class ContainerManager:
         """
         pass
 
-    def run_container(container, cmd, is_script=False):
+    def run_container(self, container, cmd, is_script=False):
         """
         Kick off the entry point process to run a container.
         """
-        subprocess.Popen([os.path.join(CONMAN_ROOT, "cpp/con"), cmd])
+        print(cmd, flush=True)
+        # with subprocess.Popen(["sudo", os.path.join(CONMAN_ROOT, "cpp/con"), cmd]) as p:
+        #     for line in p.stdout:
+        #         print(line, end='', flush=True)
+        
+        subprocess.Popen(["sudo", os.path.join(CONMAN_ROOT, "cpp/con")] + cmd.split()).communicate()
 
 def main():
     container_manager = ContainerManager()
